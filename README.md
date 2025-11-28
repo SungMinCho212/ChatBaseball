@@ -116,3 +116,10 @@ Source/ChatBaseball/
 - Unreal Engine 5
 - C++ (Visual Studio)
 - 네트워크: Client-Server 구조
+
+## 버그 수정 히스토리
+
+### 2025-11-28
+- **플레이어 이름 변경**: 플레이어 식별을 위한 이름 처리 개선
+- **턴 수 방식 수정**: 턴 순환 로직 개선 및 타이머 처리 최적화
+- 관련 파일: `CBGameModeBase`, `CBPlayerController`, `CBPlayerState`, `CBTurnTimer`
