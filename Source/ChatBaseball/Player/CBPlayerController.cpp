@@ -6,6 +6,8 @@
 #include "UI/CBTurnTimer.h"
 #include "Game/CBGameModeBase.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Net/UnrealNetwork.h"
+#include "Blueprint/UserWidget.h"
 
 
 void ACBPlayerController::BeginPlay()
@@ -41,6 +43,16 @@ void ACBPlayerController::BeginPlay()
 		}
 	}
 
+	// Notification 위젯 생성
+	if (IsValid(NotificationTextWidgetClass) == true)
+	{
+		NotificationTextWidgetInstance = CreateWidget<UUserWidget>(this, NotificationTextWidgetClass);
+		if (IsValid(NotificationTextWidgetInstance) == true)
+		{
+			NotificationTextWidgetInstance->AddToViewport();
+		}
+	}
+
 }
 
 void ACBPlayerController::SetChatMessageString(const FString& InChatMessageString)
@@ -73,4 +85,11 @@ void ACBPlayerController::ServerRPCProcessChatMessage_Implementation(const FStri
 			CBGameMode->ProcessChatMessage(this, InChatMessageString);
 		}
 	}
+}
+
+void ACBPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ACBPlayerController, NotificationText);
 }

@@ -28,6 +28,8 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerRPCProcessChatMessage(const FString& InChatMessageString);
 
+	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UCBChatInput> ChatInputWidgetClass;
@@ -41,6 +43,16 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UCBTurnTimer> TurnTimerWidgetInstance;
 
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> NotificationTextWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UUserWidget> NotificationTextWidgetInstance;
+
 	FString ChatMessageString;
+
+public:
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Notification")
+	FText NotificationText;
 
 };

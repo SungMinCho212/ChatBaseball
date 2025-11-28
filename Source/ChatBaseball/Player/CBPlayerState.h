@@ -50,6 +50,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Baseball")
 	void SetHasTriedThisTurn(bool bInHasTried) { bHasTriedThisTurn = bInHasTried; }
 
+	UFUNCTION(BlueprintCallable, Category = "Baseball")
+	FString GetPlayerInfoString() const;
+
 protected:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Baseball")
 	int32 CurrentAttempts;

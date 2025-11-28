@@ -4,14 +4,44 @@
 #include "Game/CBGameModeBase.h"
 #include "Player/CBPlayerState.h"
 #include "Player/CBPlayerController.h"
+#include "Game/CBGameStateBase.h"
 #include "Kismet/GameplayStatics.h"
 
 ACBGameModeBase::ACBGameModeBase()
 {
 	PlayerStateClass = ACBPlayerState::StaticClass();
+	GameStateClass = ACBGameStateBase::StaticClass();
 	bIsGameActive = true;
 	CurrentTurnPlayerIndex = 0;
 	TurnTimeLimit = 30.0f;
+}
+
+void ACBGameModeBase::OnPostLogin(AController* NewPlayer)
+{
+	Super::OnPostLogin(NewPlayer);
+
+	ACBPlayerController* CBPlayerController = Cast<ACBPlayerController>(NewPlayer);
+	if (IsValid(CBPlayerController) == true)
+	{
+		// PlayerList에 추가
+		if (!PlayerList.Contains(CBPlayerController))
+		{
+			PlayerList.Add(CBPlayerController);
+		}
+
+		ACBPlayerState* CBPS = CBPlayerController->GetPlayerState<ACBPlayerState>();
+		if (IsValid(CBPS) == true)
+		{
+			// GameState를 통한 로그인 메시지 브로드캐스트
+			ACBGameStateBase* CBGameStateBase = GetGameState<ACBGameStateBase>();
+			if (IsValid(CBGameStateBase) == true)
+			{
+				CBGameStateBase->MulticastRPCBroadcastLoginMessage(CBPS->GetPlayerName());
+			}
+
+			UE_LOG(LogTemp, Warning, TEXT("[Server] Player logged in: %s"), *CBPS->GetPlayerName());
+		}
+	}
 }
 
 void ACBGameModeBase::BeginPlay()
@@ -205,6 +235,20 @@ void ACBGameModeBase::CheckGameResult(APlayerController* PlayerController, const
 		BroadcastMessage(FString::Printf(TEXT("정답: %s"), *AnswerNumber));
 		BroadcastMessage(FString::Printf(TEXT("========================================")));
 
+		// 모든 플레이어에게 승리 알림 표시
+		for (APlayerController* PC : PlayerList)
+		{
+			if (IsValid(PC))
+			{
+				ACBPlayerController* CBPC = Cast<ACBPlayerController>(PC);
+				if (IsValid(CBPC))
+				{
+					FString WinMessage = FString::Printf(TEXT("🎉 %s 승리!"), *PlayerController->GetPlayerState<APlayerState>()->GetPlayerName());
+					CBPC->NotificationText = FText::FromString(WinMessage);
+				}
+			}
+		}
+
 		bIsGameActive = false;
 
 		FTimerHandle ResetTimerHandle;
@@ -249,6 +293,19 @@ void ACBGameModeBase::CheckGameResult(APlayerController* PlayerController, const
 			BroadcastMessage(FString::Printf(TEXT("정답: %s"), *AnswerNumber));
 			BroadcastMessage(FString::Printf(TEXT("========================================")));
 
+			// 모든 플레이어에게 무승부 알림 표시
+			for (APlayerController* PC : PlayerList)
+			{
+				if (IsValid(PC))
+				{
+					ACBPlayerController* CBPC = Cast<ACBPlayerController>(PC);
+					if (IsValid(CBPC))
+					{
+						CBPC->NotificationText = FText::FromString(TEXT("무승부..."));
+					}
+				}
+			}
+
 			bIsGameActive = false;
 
 			FTimerHandle ResetTimerHandle;
@@ -278,6 +335,19 @@ void ACBGameModeBase::ResetGame()
 	CurrentTurnPlayerIndex = 0;
 
 	bIsGameActive = true;
+
+	// 모든 플레이어의 알림 메시지 초기화
+	for (APlayerController* PC : PlayerList)
+	{
+		if (IsValid(PC))
+		{
+			ACBPlayerController* CBPC = Cast<ACBPlayerController>(PC);
+			if (IsValid(CBPC))
+			{
+				CBPC->NotificationText = FText::GetEmpty();
+			}
+		}
+	}
 
 	BroadcastMessage(TEXT("게임이 리셋되었습니다! 새로운 게임을 시작합니다."));
 

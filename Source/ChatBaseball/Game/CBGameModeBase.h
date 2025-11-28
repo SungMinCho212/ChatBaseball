@@ -16,6 +16,8 @@ public:
 
 	virtual void BeginPlay() override;
 
+	virtual void OnPostLogin(AController* NewPlayer) override;
+
 	UFUNCTION(BlueprintCallable, Category = "Baseball")
 	void ProcessChatMessage(APlayerController* PlayerController, const FString& Message);
 

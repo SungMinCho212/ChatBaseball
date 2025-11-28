@@ -36,6 +36,12 @@ void ACBPlayerState::OnRep_IsMyTurn()
 	UE_LOG(LogTemp, Warning, TEXT("[%s] OnRep_IsMyTurn: %s"), *GetPlayerName(), bIsMyTurn ? TEXT("TRUE") : TEXT("FALSE"));
 }
 
+FString ACBPlayerState::GetPlayerInfoString() const
+{
+	FString PlayerInfoString = GetPlayerName() + TEXT("(") + FString::FromInt(CurrentAttempts) + TEXT("/") + FString::FromInt(MaxAttempts) + TEXT(")");
+	return PlayerInfoString;
+}
+
 void ACBPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
