@@ -57,7 +57,7 @@ protected:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Baseball")
 	int32 CurrentAttempts;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Baseball")
+	UPROPERTY(Config, EditDefaultsOnly, BlueprintReadOnly, Category = "Baseball")
 	int32 MaxAttempts;
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Baseball")
@@ -72,7 +72,7 @@ protected:
 	UFUNCTION()
 	void OnRep_IsMyTurn();
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Baseball")
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Baseball")
 	bool bHasTriedThisTurn;
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

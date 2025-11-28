@@ -73,9 +73,23 @@ void ACBPlayerController::ClientRPCPrintChatMessageString_Implementation(const F
 	PrintChatMessageString(InChatMessageString);
 }
 
+bool ACBPlayerController::ServerRPCProcessChatMessage_Validate(const FString& InChatMessageString)
+{
+	if (InChatMessageString.Len() > 100)
+	{
+		return false;
+	}
+
+	if (InChatMessageString.IsEmpty())
+	{
+		return false;
+	}
+
+	return true;
+}
+
 void ACBPlayerController::ServerRPCProcessChatMessage_Implementation(const FString& InChatMessageString)
 {
-	// 서버에서 GameMode의 ProcessChatMessage 호출
 	AGameModeBase* GameMode = GetWorld()->GetAuthGameMode();
 	if (IsValid(GameMode))
 	{

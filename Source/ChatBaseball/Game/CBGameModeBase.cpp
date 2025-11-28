@@ -12,7 +12,7 @@ ACBGameModeBase::ACBGameModeBase()
 	PlayerStateClass = ACBPlayerState::StaticClass();
 	GameStateClass = ACBGameStateBase::StaticClass();
 	bIsGameActive = true;
-	CurrentTurnPlayerIndex = 0;
+	CurrentTurnPlayerIndex = -1;
 	TurnTimeLimit = 30.0f;
 }
 
@@ -23,7 +23,6 @@ void ACBGameModeBase::OnPostLogin(AController* NewPlayer)
 	ACBPlayerController* CBPlayerController = Cast<ACBPlayerController>(NewPlayer);
 	if (IsValid(CBPlayerController) == true)
 	{
-		// PlayerList에 추가
 		if (!PlayerList.Contains(CBPlayerController))
 		{
 			PlayerList.Add(CBPlayerController);
@@ -32,15 +31,41 @@ void ACBGameModeBase::OnPostLogin(AController* NewPlayer)
 		ACBPlayerState* CBPS = CBPlayerController->GetPlayerState<ACBPlayerState>();
 		if (IsValid(CBPS) == true)
 		{
-			// GameState를 통한 로그인 메시지 브로드캐스트
+			FString PlayerName = FString::Printf(TEXT("Player %d"), PlayerList.Num());
+			CBPS->SetPlayerName(PlayerName);
+
 			ACBGameStateBase* CBGameStateBase = GetGameState<ACBGameStateBase>();
 			if (IsValid(CBGameStateBase) == true)
 			{
-				CBGameStateBase->MulticastRPCBroadcastLoginMessage(CBPS->GetPlayerName());
+				CBGameStateBase->MulticastRPCBroadcastLoginMessage(PlayerName);
 			}
 
-			UE_LOG(LogTemp, Warning, TEXT("[Server] Player logged in: %s"), *CBPS->GetPlayerName());
+			UE_LOG(LogTemp, Warning, TEXT("[Server] Player logged in: %s"), *PlayerName);
 		}
+
+		if (bIsGameActive && PlayerList.Num() == 1)
+		{
+			StartNextTurn();
+		}
+	}
+}
+
+void ACBGameModeBase::Logout(AController* Exiting)
+{
+	Super::Logout(Exiting);
+
+	APlayerController* PC = Cast<APlayerController>(Exiting);
+	if (IsValid(PC))
+	{
+		PlayerList.Remove(PC);
+
+		if (bIsGameActive && PlayerList.Num() == 0)
+		{
+			bIsGameActive = false;
+			GetWorld()->GetTimerManager().ClearTimer(TurnTimerHandle);
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("[Server] Player logged out. Remaining players: %d"), PlayerList.Num());
 	}
 }
 
@@ -49,29 +74,6 @@ void ACBGameModeBase::BeginPlay()
 	Super::BeginPlay();
 
 	GenerateAnswerNumber();
-
-	FTimerHandle InitTimerHandle;
-	GetWorld()->GetTimerManager().SetTimer(InitTimerHandle, [this]()
-	{
-		PlayerList.Empty();
-		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
-		{
-			APlayerController* PC = It->Get();
-			if (IsValid(PC))
-			{
-				PlayerList.Add(PC);
-				UE_LOG(LogTemp, Warning, TEXT("[Server] Added player to list: %s"), *PC->GetPlayerState<APlayerState>()->GetPlayerName());
-			}
-		}
-
-		UE_LOG(LogTemp, Warning, TEXT("[Server] Total players: %d"), PlayerList.Num());
-
-		if (PlayerList.Num() > 0)
-		{
-			StartNextTurn();
-		}
-	}, 2.0f, false);
-	
 }
 
 void ACBGameModeBase::GenerateAnswerNumber()
@@ -221,6 +223,11 @@ void ACBGameModeBase::ProcessChatMessage(APlayerController* PlayerController, co
 
 void ACBGameModeBase::CheckGameResult(APlayerController* PlayerController, const FString& Result)
 {
+	if (!IsValid(PlayerController))
+	{
+		return;
+	}
+
 	ACBPlayerState* CBPlayerState = PlayerController->GetPlayerState<ACBPlayerState>();
 	if (!IsValid(CBPlayerState))
 	{
@@ -251,7 +258,6 @@ void ACBGameModeBase::CheckGameResult(APlayerController* PlayerController, const
 
 		bIsGameActive = false;
 
-		FTimerHandle ResetTimerHandle;
 		GetWorld()->GetTimerManager().SetTimer(ResetTimerHandle, this, &ACBGameModeBase::ResetGame, 3.0f, false);
 		return;
 	}
@@ -308,7 +314,6 @@ void ACBGameModeBase::CheckGameResult(APlayerController* PlayerController, const
 
 			bIsGameActive = false;
 
-			FTimerHandle ResetTimerHandle;
 			GetWorld()->GetTimerManager().SetTimer(ResetTimerHandle, this, &ACBGameModeBase::ResetGame, 3.0f, false);
 		}
 	}
@@ -385,19 +390,19 @@ void ACBGameModeBase::StartNextTurn()
 
 	GetWorld()->GetTimerManager().ClearTimer(TurnTimerHandle);
 
-	int32 StartIndex = CurrentTurnPlayerIndex;
 	bool bFoundNextPlayer = false;
 
-	for (int32 i = 0; i < PlayerList.Num(); i++)
+	for (int32 i = 1; i <= PlayerList.Num(); i++)
 	{
-		CurrentTurnPlayerIndex = (StartIndex + i) % PlayerList.Num();
-		APlayerController* PC = PlayerList[CurrentTurnPlayerIndex];
+		int32 CheckIndex = (CurrentTurnPlayerIndex + i) % PlayerList.Num();
+		APlayerController* PC = PlayerList[CheckIndex];
 
 		if (IsValid(PC))
 		{
 			ACBPlayerState* PS = PC->GetPlayerState<ACBPlayerState>();
 			if (IsValid(PS) && !PS->GetHasWon() && PS->GetCurrentAttempts() < PS->GetMaxAttempts())
 			{
+				CurrentTurnPlayerIndex = CheckIndex;
 				bFoundNextPlayer = true;
 				break;
 			}
@@ -406,7 +411,44 @@ void ACBGameModeBase::StartNextTurn()
 
 	if (!bFoundNextPlayer)
 	{
-		CheckGameResult(nullptr, TEXT(""));
+		bool bHasWinner = false;
+		TArray<AActor*> AllPlayerStates;
+		UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACBPlayerState::StaticClass(), AllPlayerStates);
+
+		for (AActor* Actor : AllPlayerStates)
+		{
+			ACBPlayerState* PS = Cast<ACBPlayerState>(Actor);
+			if (IsValid(PS) && PS->GetHasWon())
+			{
+				bHasWinner = true;
+				break;
+			}
+		}
+
+		if (!bHasWinner)
+		{
+			BroadcastMessage(FString::Printf(TEXT("========================================")));
+			BroadcastMessage(FString::Printf(TEXT("무승부! 모든 플레이어가 시도 횟수를 소진했습니다.")));
+			BroadcastMessage(FString::Printf(TEXT("정답: %s"), *AnswerNumber));
+			BroadcastMessage(FString::Printf(TEXT("========================================")));
+
+			for (APlayerController* PC : PlayerList)
+			{
+				if (IsValid(PC))
+				{
+					ACBPlayerController* CBPC = Cast<ACBPlayerController>(PC);
+					if (IsValid(CBPC))
+					{
+						CBPC->NotificationText = FText::FromString(TEXT("무승부..."));
+					}
+				}
+			}
+
+			bIsGameActive = false;
+
+			GetWorld()->GetTimerManager().SetTimer(ResetTimerHandle, this, &ACBGameModeBase::ResetGame, 3.0f, false);
+		}
+
 		return;
 	}
 
@@ -444,8 +486,6 @@ void ACBGameModeBase::StartNextTurn()
 	}
 
 	GetWorld()->GetTimerManager().SetTimer(TurnTimerHandle, this, &ACBGameModeBase::UpdateTurnTime, 0.1f, true);
-
-	CurrentTurnPlayerIndex = (CurrentTurnPlayerIndex + 1) % PlayerList.Num();
 }
 
 void ACBGameModeBase::UpdateTurnTime()
@@ -498,6 +538,5 @@ void ACBGameModeBase::EndCurrentTurn()
 {
 	GetWorld()->GetTimerManager().ClearTimer(TurnTimerHandle);
 
-	FTimerHandle NextTurnTimerHandle;
 	GetWorld()->GetTimerManager().SetTimer(NextTurnTimerHandle, this, &ACBGameModeBase::StartNextTurn, 0.5f, false);
 }

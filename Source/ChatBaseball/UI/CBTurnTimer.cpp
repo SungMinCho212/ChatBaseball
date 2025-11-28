@@ -6,24 +6,29 @@
 #include "Player/CBPlayerState.h"
 #include "GameFramework/PlayerState.h"
 #include "Kismet/GameplayStatics.h"
+#include "TimerManager.h"
 
 void UCBTurnTimer::NativeConstruct()
 {
 	Super::NativeConstruct();
 
 	UpdateTimerDisplay();
+
+	GetWorld()->GetTimerManager().SetTimer(UpdateTimerHandle, this, &UCBTurnTimer::UpdateTimerDisplay, 0.1f, true);
 }
 
-void UCBTurnTimer::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+void UCBTurnTimer::NativeDestruct()
 {
-	Super::NativeTick(MyGeometry, InDeltaTime);
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(UpdateTimerHandle);
+	}
 
-	UpdateTimerDisplay();
+	Super::NativeDestruct();
 }
 
 void UCBTurnTimer::UpdateTimerDisplay()
 {
-	// 모든 플레이어 스테이트 중에서 현재 턴인 플레이어 찾기
 	TArray<AActor*> PlayerStates;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACBPlayerState::StaticClass(), PlayerStates);
 
@@ -32,7 +37,6 @@ void UCBTurnTimer::UpdateTimerDisplay()
 		ACBPlayerState* PS = Cast<ACBPlayerState>(Actor);
 		if (IsValid(PS) && PS->GetIsMyTurn())
 		{
-			// 남은 시간 표시
 			float RemainingTime = PS->GetRemainingTurnTime();
 			int32 Seconds = FMath::CeilToInt(RemainingTime);
 
@@ -41,7 +45,6 @@ void UCBTurnTimer::UpdateTimerDisplay()
 				FString TimeText = FString::Printf(TEXT("남은 시간: %d초"), Seconds);
 				TextBlock_Timer->SetText(FText::FromString(TimeText));
 
-				// 시간이 5초 이하면 빨간색으로 표시
 				if (Seconds <= 5)
 				{
 					TextBlock_Timer->SetColorAndOpacity(FSlateColor(FLinearColor::Red));
@@ -52,7 +55,6 @@ void UCBTurnTimer::UpdateTimerDisplay()
 				}
 			}
 
-			// 현재 턴 플레이어 이름 표시
 			if (IsValid(TextBlock_CurrentPlayer))
 			{
 				FString PlayerName = PS->GetPlayerName();
@@ -64,7 +66,6 @@ void UCBTurnTimer::UpdateTimerDisplay()
 		}
 	}
 
-	// 현재 턴인 플레이어가 없으면 대기 메시지 표시
 	if (IsValid(TextBlock_Timer))
 	{
 		TextBlock_Timer->SetText(FText::FromString(TEXT("턴 대기 중...")));

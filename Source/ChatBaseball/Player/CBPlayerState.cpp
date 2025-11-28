@@ -50,4 +50,5 @@ void ACBPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(ACBPlayerState, bHasWon);
 	DOREPLIFETIME(ACBPlayerState, RemainingTurnTime);
 	DOREPLIFETIME(ACBPlayerState, bIsMyTurn);
+	DOREPLIFETIME(ACBPlayerState, bHasTriedThisTurn);
 }

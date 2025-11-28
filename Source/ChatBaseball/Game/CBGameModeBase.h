@@ -18,6 +18,8 @@ public:
 
 	virtual void OnPostLogin(AController* NewPlayer) override;
 
+	virtual void Logout(AController* Exiting) override;
+
 	UFUNCTION(BlueprintCallable, Category = "Baseball")
 	void ProcessChatMessage(APlayerController* PlayerController, const FString& Message);
 
@@ -59,10 +61,14 @@ private:
 	UPROPERTY()
 	int32 CurrentTurnPlayerIndex;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Baseball")
+	UPROPERTY(Config, EditDefaultsOnly, Category = "Baseball")
 	float TurnTimeLimit;
 
 	FTimerHandle TurnTimerHandle;
+
+	FTimerHandle ResetTimerHandle;
+
+	FTimerHandle NextTurnTimerHandle;
 
 	UPROPERTY()
 	TArray<APlayerController*> PlayerList;
